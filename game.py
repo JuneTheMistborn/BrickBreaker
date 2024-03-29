@@ -1,5 +1,5 @@
 import pygame
-from math import cos, sin, atan2, log
+from math import cos, sin, atan2, log, e
 from random import random, randint
 
 pygame.init()
@@ -39,6 +39,12 @@ bullets_to_add = 0
 
 running = True
 gameClock = pygame.time.Clock()
+
+
+def get_color(round_num):
+    return round((lambda r: (242-(r-5)/e**((r+15)/30)) if r < 160 else 242)(round_num)),\
+           round((lambda r: -2.2*r+174 if r < 35 else 98)(round_num)),\
+           round((lambda r: 116 if r < 9 else 85+(75/e**(.1*r)))(round_num))
 
 
 def first_missing_int(id_list):
@@ -116,10 +122,9 @@ class Block(pygame.sprite.Sprite):
     def __init__(self, location, strength, ident):
         super(Block, self).__init__()
         self.image = pygame.Surface((65, 35))
-        self.image.fill((0, 0, 0))
+        self.image.fill((255, 255, 255))
         self.rect = self.image.get_rect(topleft=location)
         self.in_border = self.image.subsurface((1, 1), (63, 33))
-        self.in_border.fill((255, 0, 0))
         self.strength = strength
         self.mask = pygame.mask.from_surface(self.image)
         self.ident = ident
@@ -160,8 +165,9 @@ class Block(pygame.sprite.Sprite):
             self.kill()
 
     def write_strength(self):
-        rendered_font = stdFont.render(str(self.strength), True, (255, 255, 255), (255, 0, 0))
-        self.in_border.fill((255, 0, 0))
+        color = get_color(self.strength)
+        rendered_font = stdFont.render(str(self.strength), True, (255, 255, 255), color)
+        self.in_border.fill(color)
         self.in_border.blit(rendered_font, ((self.rect.width - rendered_font.get_size()[0]) / 2,
                                             (self.rect.height - rendered_font.get_size()[1]) / 2))
 
