@@ -21,6 +21,7 @@ pygame.draw.line(window, (0, 0, 0), (0, 9), (SCREEN_WIDTH, 9), width=3)
 pygame.display.flip()
 
 stdFont = pygame.font.SysFont("SysFont", 15)
+counterFont = pygame.font.SysFont("SysFont", 20)
 
 all_sprites = pygame.sprite.Group()
 blocks = pygame.sprite.Group()
@@ -115,6 +116,9 @@ class Bonus(pygame.sprite.Sprite):
         self.rect.y += 36
         if self.rect.bottom >= GAMESCREEN_HEIGHT:
             accumulated_bullets += 1
+            bonus_bullet = Bullet(bullets_pos)
+            bullets.add(bonus_bullet)
+            all_sprites.add(bonus_bullet)
             self.kill()
 
 
@@ -159,9 +163,12 @@ class Block(pygame.sprite.Sprite):
         # handle consequences of collision
         self.strength -= 1
         self.write_strength()
-        if self.strength <= 0:
+        if self.strength == 0:
             print(block_ids, self.ident)
             block_ids.pop(block_ids.index(self.ident))
+            self.kill()
+        elif self.strength < 0:
+            print("Hit twice!")
             self.kill()
 
     def write_strength(self):
@@ -240,6 +247,7 @@ spawn_row(difficulty_func(curr_round))
 all_sprites.add(blocks, bullets)
 while running:
     game_window.fill((255, 255, 255))
+    pygame.draw.rect(window, (255, 255, 255), pygame.Rect(0, 408, SCREEN_WIDTH, SCREEN_HEIGHT-408))
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -297,6 +305,10 @@ while running:
             bonuses.update()
 
             spawn_row(difficulty_func(curr_round))
+
+    if not bullets_active:
+        bullet_counter_text = stdFont.render(f"x{accumulated_bullets}", True, (0, 0, 0), (255, 255, 255))
+        window.blit(bullet_counter_text, (bullets_pos[0]-8, bullets_pos[1]+24))
 
     if subframe >= 2:
         subframe = 0
