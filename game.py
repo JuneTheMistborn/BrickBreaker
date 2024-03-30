@@ -1,5 +1,5 @@
 import pygame
-from math import cos, sin, atan2, log, e
+from math import cos, sin, atan2, log, e, pi
 from random import random, randint
 
 pygame.init()
@@ -8,7 +8,8 @@ print(pygame.get_init())
 SCREEN_WIDTH = 397
 SCREEN_HEIGHT = 500
 GAMESCREEN_HEIGHT = 394
-SPEED = 10
+FRAMERATE = 60
+SPEED = (60*10)//FRAMERATE
 WALL_LIST = ["left", "right", "top", "bottom"]
 INVERTED_WALL_LIST = ["right", "left", "bottom", "top"]
 
@@ -172,7 +173,7 @@ class Block(pygame.sprite.Sprite):
             self.kill()
 
     def write_strength(self):
-        color = get_color(self.strength)
+        color = get_color(self.strength/2)
         rendered_font = stdFont.render(str(self.strength), True, (255, 255, 255), color)
         self.in_border.fill(color)
         self.in_border.blit(rendered_font, ((self.rect.width - rendered_font.get_size()[0]) / 2,
@@ -180,7 +181,7 @@ class Block(pygame.sprite.Sprite):
 
 
 class Bullet(pygame.sprite.Sprite):
-    def __init__(self, location, ident=None):
+    def __init__(self, location, ident=None, track=False):
         super(Bullet, self).__init__()
         self.image = pygame.Surface((16, 16))
         self.image.fill((255, 255, 255))
@@ -191,6 +192,7 @@ class Bullet(pygame.sprite.Sprite):
         self.active = False
         self.last_collided = None
         self.ident = ident
+        self.track = track
 
         pygame.draw.circle(self.image, (65, 165, 195), (8, 8), 8, 0)
         self.mask = pygame.mask.from_surface(self.image)
@@ -228,7 +230,8 @@ class Bullet(pygame.sprite.Sprite):
 
     def collided(self, collided_id, side, push=0):
         if collided_id != self.last_collided:
-            # print("Collision! Side: " + str(side) + ", id: " + str(collided_id))
+            if self.track:
+                print(f"Collision! Side: {str(side)}, id: {str(collided_id)}, push: {str(push)}")
 
             if side == "left" or side == "right":
                 self.dir.x *= -1
@@ -240,7 +243,7 @@ class Bullet(pygame.sprite.Sprite):
         self.last_collided = collided_id
 
 
-bullets.add(Bullet(bullets_pos))
+bullets.add(Bullet(bullets_pos, track=True))
 
 spawn_row(difficulty_func(curr_round))
 
@@ -251,12 +254,14 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-        if event.type == pygame.MOUSEBUTTONUP and not bullets_active:
+        if event.type == pygame.MOUSEBUTTONUP and event.button == 1 and not bullets_active:
             mouse_pos = pygame.mouse.get_pos()
             if not mouse_pos[1] >= bullets_pos[1]:
                 bullets_active = True
-                delay_before_bottom_collision = 6
+                delay_before_bottom_collision = (FRAMERATE*6)//60
                 angle = atan2(bullets_pos[1]-mouse_pos[1], mouse_pos[0]-bullets_pos[0])
+                if angle < pi/18:
+                    angle = pi/18
                 # print("clicked and bullets inactive")
                 for bullet in bullets:
                     bullet.dir.x = cos(angle)
@@ -305,12 +310,13 @@ while running:
             bonuses.update()
 
             spawn_row(difficulty_func(curr_round))
+            print("New round")
 
     if not bullets_active:
         bullet_counter_text = stdFont.render(f"x{accumulated_bullets}", True, (0, 0, 0), (255, 255, 255))
         window.blit(bullet_counter_text, (bullets_pos[0]-8, bullets_pos[1]+24))
 
-    if subframe >= 2:
+    if subframe >= (FRAMERATE*2)//60:
         subframe = 0
 
     if delay_before_bottom_collision > 0:
@@ -318,5 +324,5 @@ while running:
 
     subframe += 1
 
-    gameClock.tick(60)
+    gameClock.tick(FRAMERATE)
     pygame.display.flip()
