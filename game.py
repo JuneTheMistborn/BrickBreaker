@@ -143,29 +143,15 @@ class Block(pygame.sprite.Sprite):
             running = False
 
     def collided(self, collided_sprite, collided_location):
-        # tell bullet that it collided and where
-        distance = max(self.rect.width, self.rect.height)
-        shortest = distance
-        side = "top"
-        offset_sign = 1
-        for j in range(4):
-            distance = ((j % 2) * (self.rect.width - ((j // 2) * self.width_height_diff))) + \
-                       (((-1) ** j) * collided_location[j // 2])
-            if distance < shortest:
-                shortest = distance
-                side = INVERTED_WALL_LIST[j]
-                offset_sign = (-1)**(j+1)
-                # sides for block are inverse of sides for ball
-            if shortest == 0:
-                break
+        # print(f"location of collision: {collided_location}, self location: {self.rect}")
+        # send data to sprite that collided with self
+        collided_sprite.collided(self.ident, collided_sprite=self, location_in_sprite=collided_location)
 
-        collided_sprite.collided(self.ident, side, offset_sign * distance)
-
-        # handle consequences of collision
+        # handle local consequences of collision
         self.strength -= 1
         self.write_strength()
         if self.strength == 0:
-            print(block_ids, self.ident)
+            # print(block_ids, self.ident)
             block_ids.pop(block_ids.index(self.ident))
             self.kill()
         elif self.strength < 0:
@@ -187,6 +173,7 @@ class Bullet(pygame.sprite.Sprite):
         self.image.fill((255, 255, 255))
         self.image.set_colorkey((255, 255, 255))
         self.pos = pygame.math.Vector2(location)
+        self.prev_pos = pygame.math.Vector2(location)
         self.rect = self.image.get_rect(center=location)
         self.dir = pygame.math.Vector2((1, 1)).normalize()
         self.active = False
@@ -198,47 +185,97 @@ class Bullet(pygame.sprite.Sprite):
         self.mask = pygame.mask.from_surface(self.image)
 
     def update(self):
-        global first_hit_floor
-        global bullets_pos
+        self.prev_pos = self.pos
         if self.active:
             self.pos += self.dir
             self.rect.center = round(self.pos.x), round(self.pos.y)
 
-            if self.rect.right > SCREEN_WIDTH:
+        if self.rect.left < 0:
+            self.collided("leftWall", side="left")
+        if self.rect.right > SCREEN_WIDTH:
+            self.collided("rightWall", side="right")
+        if self.rect.bottom > GAMESCREEN_HEIGHT:
+            self.collided("bottomWall", side="bottom")
+        if self.rect.top < 0:
+            self.collided("topWall", side="top")
+
+    def collided(self, collided_id, collided_sprite=None, location_in_sprite=None, side=None):
+        global first_hit_floor
+        global bullets_pos
+
+        # if the side of collision is known (currently only known when bullet hits a wall)
+        if side is not None:
+            # if hit right wall, push back in bounds and negate (reverse) x direction
+            if collided_id == "rightWall" and self.rect.right > SCREEN_WIDTH:
                 self.rect.right = SCREEN_WIDTH
-                self.pos.x = SCREEN_WIDTH-(self.rect.width//2)
-                self.collided("rightWall", side="right")
-            elif self.rect.left < 0:
+                self.pos.x = self.rect.center[0]
+
+            # if hit left wall, push back in bounds and negate (reverse) x direction
+            elif collided_id == "leftWall" and self.rect.left < 0:
                 self.rect.left = 0
-                self.pos.x = 0+(self.rect.width//2)
-                self.collided("leftWall", side="left")
-            if self.rect.top < 0:
+                self.pos.x = self.rect.center[0]
+
+            # if hit top wall, push back in bounds and negate (reverse) y direction
+            elif collided_id == "topWall" and self.rect.top < 0:
                 self.rect.top = 0
-                self.pos.y = self.rect.height//2
-                self.collided("topWall", side="top")
-            elif self.rect.bottom > GAMESCREEN_HEIGHT and delay_before_bottom_collision == 0:
+                self.pos.y = self.rect.center[1]
+
+            # if hit bottom wall, push back in bound, turn off movement and check whether this is the first bullet to
+            # hit the floor
+            elif collided_id == "bottomWall" and self.rect.bottom > GAMESCREEN_HEIGHT and\
+                    delay_before_bottom_collision == 0:
                 self.rect.bottom = GAMESCREEN_HEIGHT
                 self.pos.y = self.rect.center[1]
                 self.active = False
-                self.last_collided = "bottomWall"
+                # if no other bullet has hit the floor, set the global bullet position to the center of this bullet
                 if not first_hit_floor:
                     first_hit_floor = True
                     bullets_pos = self.rect.center
+                # if other bullet(s) has hit the floor, set this bullets position to the global bullet position
                 if first_hit_floor:
                     self.rect.center = self.pos = bullets_pos
-                # print("Collided bottom")
 
-    def collided(self, collided_id, side, push=0):
+        # if the side of collision is not known (currently when bullet hits a block)
+        else:
+            new_location = self.prev_pos
+            # print(f"absolute location: {abs_location}, previous location: {self.prev_pos}, rect: "
+                  # f"{collided_sprite.rect}\n rect vals: {collided_sprite.rect.bottom}, {collided_sprite.rect.top}, "
+                  # f"{collided_sprite.rect.left}, {collided_sprite.rect.right}")
+
+            if self.prev_pos.x > collided_sprite.rect.right:
+                magnitude = (collided_sprite.rect.right - self.prev_pos.x) / self.dir.x
+                new_location.y += magnitude * self.dir.y
+                new_location.x = collided_sprite.rect.right
+                side = "right"
+                # print(f"right; magnitude: {magnitude}, new location: {new_location}")
+            elif self.prev_pos.x < collided_sprite.rect.left:
+                magnitude = (collided_sprite.rect.left - self.prev_pos.x) / self.dir.x
+                new_location.y += magnitude * self.dir.y
+                new_location.x = collided_sprite.rect.left
+                side = "left"
+                # print(f"left; magnitude: {magnitude}, new location: {new_location}")
+
+            if self.prev_pos.y < collided_sprite.rect.top:
+                magnitude = (collided_sprite.rect.top - self.prev_pos.y) / self.dir.y
+                new_location.x += magnitude * self.dir.x
+                new_location.y = collided_sprite.rect.top
+                side = "top"
+                # print(f"top; magnitude: {magnitude}, new location: {new_location}")
+            elif self.prev_pos.y > collided_sprite.rect.bottom:
+                magnitude = (collided_sprite.rect.bottom - self.prev_pos.y) / self.dir.y
+                new_location.x += magnitude * self.dir.x
+                new_location.y = collided_sprite.rect.bottom
+                side = "bottom"
+                # print(f"bottom; magnitude: {magnitude}, new location: {new_location}")
+
+            self.rect.topleft = new_location
+            self.pos = pygame.math.Vector2(self.rect.topleft)
+
         if collided_id != self.last_collided:
-            if self.track:
-                print(f"Collision! Side: {str(side)}, id: {str(collided_id)}, push: {str(push)}")
-
             if side == "left" or side == "right":
                 self.dir.x *= -1
-                self.pos.x += push
-            elif side == "top" or side == "bottom":
+            if side == "top" or side == "bottom":
                 self.dir.y *= -1
-                self.pos.y += push
 
         self.last_collided = collided_id
 
