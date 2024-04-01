@@ -243,33 +243,33 @@ class Bullet(pygame.sprite.Sprite):
                   # f"{collided_sprite.rect.left}, {collided_sprite.rect.right}")
 
             if self.prev_pos.x > collided_sprite.rect.right:
-                magnitude = (collided_sprite.rect.right - self.prev_pos.x) / self.dir.x
+                magnitude = (collided_sprite.rect.right + 8 - self.prev_pos.x) / self.dir.x
                 new_location.y += magnitude * self.dir.y
-                new_location.x = collided_sprite.rect.right
+                new_location.x = collided_sprite.rect.right + 8
                 side = "right"
                 # print(f"right; magnitude: {magnitude}, new location: {new_location}")
             elif self.prev_pos.x < collided_sprite.rect.left:
-                magnitude = (collided_sprite.rect.left - self.prev_pos.x) / self.dir.x
+                magnitude = (collided_sprite.rect.left - 8 - self.prev_pos.x) / self.dir.x
                 new_location.y += magnitude * self.dir.y
-                new_location.x = collided_sprite.rect.left
+                new_location.x = collided_sprite.rect.left - 8
                 side = "left"
                 # print(f"left; magnitude: {magnitude}, new location: {new_location}")
 
             if self.prev_pos.y < collided_sprite.rect.top:
-                magnitude = (collided_sprite.rect.top - self.prev_pos.y) / self.dir.y
+                magnitude = (collided_sprite.rect.top - 8 - self.prev_pos.y) / self.dir.y
                 new_location.x += magnitude * self.dir.x
-                new_location.y = collided_sprite.rect.top
+                new_location.y = collided_sprite.rect.top - 8
                 side = "top"
                 # print(f"top; magnitude: {magnitude}, new location: {new_location}")
             elif self.prev_pos.y > collided_sprite.rect.bottom:
-                magnitude = (collided_sprite.rect.bottom - self.prev_pos.y) / self.dir.y
+                magnitude = (collided_sprite.rect.bottom + 8 - self.prev_pos.y) / self.dir.y
                 new_location.x += magnitude * self.dir.x
-                new_location.y = collided_sprite.rect.bottom
+                new_location.y = collided_sprite.rect.bottom + 8
                 side = "bottom"
                 # print(f"bottom; magnitude: {magnitude}, new location: {new_location}")
 
-            self.rect.topleft = new_location
-            self.pos = pygame.math.Vector2(self.rect.topleft)
+            self.rect.center = new_location
+            self.pos = new_location
 
         if collided_id != self.last_collided:
             if side == "left" or side == "right":
@@ -278,6 +278,7 @@ class Bullet(pygame.sprite.Sprite):
                 self.dir.y *= -1
 
         self.last_collided = collided_id
+        self.update()
 
 
 bullets.add(Bullet(bullets_pos, track=True))
